@@ -1,0 +1,15 @@
+{
+  "tickers": {
+    "VanEck AEX UCITS ETF": "TAEX.AS",
+    "NN Group N.V.": "NN.AS",
+    "Vanguard ESG Dev Europe All Cap UCITS ETF EUR Dist": "CHECK-TICKER",
+    "Wolters Kluwer N.V.": "WKL.AS"
+  },
+  "trades": [
+    { "date": "2025-10-01", "type": "buy",  "name": "VanEck AEX UCITS ETF", "qty": 6,  "price": 94.06, "fee": 0 },
+    { "date": "2025-10-01", "type": "buy",  "name": "NN Group N.V.", "qty": 7,  "price": 59.30, "fee": 0 },
+    { "date": "2026-04-28", "type": "buy",  "name": "Vanguard ESG Dev Europe All Cap UCITS ETF EUR Dist", "qty": 79, "price": 6.534, "fee": 0 },
+    { "date": "2026-05-06", "type": "buy",  "name": "Wolters Kluwer N.V.", "qty": 9,  "price": 63.00, "fee": 0 },
+    { "date": "2026-05-06", "type": "sell", "name": "VanEck AEX UCITS ETF", "qty": 6,  "price": 103.00, "fee": 0 }
+  ]
+}

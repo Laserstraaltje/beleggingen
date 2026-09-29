@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mijn beleggingen</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--text:#1a1d21;--muted:#6b7280;--pos:#16a34a;--neg:#dc2626;--line:#2563eb}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--text:#e8eaed;--muted:#9aa0a6;--line:#60a5fa}}
+body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--text)}
+main{max-width:900px;margin:0 auto;padding:24px 16px}
+h1{font-size:1.4rem}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.card{background:var(--card);border-radius:12px;padding:14px 16px}
+.card small{color:var(--muted)}.card b{display:block;font-size:1.4rem;margin-top:4px}
+.chart{background:var(--card);border-radius:12px;padding:16px;height:380px}
+.pos{color:var(--pos)}.neg{color:var(--neg)}
+</style>
+</head>
+<body>
+<main>
+<h1>Totale winst op mijn beleggingen</h1>
+<div class="cards">
+ <div class="card"><small>Totale winst</small><b id="profit">–</b></div>
+ <div class="card"><small>Rendement</small><b id="pct">–</b></div>
+ <div class="card"><small>Gerealiseerd</small><b id="real">–</b></div>
+ <div class="card"><small>Ongerealiseerd</small><b id="unreal">–</b></div>
+</div>
+<div class="chart"><canvas id="c"></canvas></div>
+<p style="color:var(--muted);font-size:.85rem">Rendement = (huidige waarde + verkoopopbrengst − totaal ingelegd) ÷ totaal ingelegd.</p>
+</main>
+<script>
+const eur = v => v.toLocaleString("nl-NL",{style:"currency",currency:"EUR"});
+const fmtPct = v => (v>=0?"+":"")+v.toFixed(2).replace(".",",")+"%";
+const cls = (el,v)=>{el.className=v>=0?"pos":"neg"};
+
+async function load(){
+  const cfg = await (await fetch("trades.json")).json();
+  let prices = {};
+  try { prices = await (await fetch("prices.json")).json(); } catch(e){}
+
+  const trades = [...cfg.trades].sort((a,b)=>a.date.localeCompare(b.date));
+  const tick = n => cfg.tickers[n];
+  // koersreeks per ticker: dagkoersen + transactiekoersen als vangnet
+  const series = {};
+  for(const n of Object.keys(cfg.tickers)) series[n] = {...(prices[tick(n)]||{})};
+  for(const t of trades) if(!(t.date in series[t.name])) series[t.name][t.date] = t.price;
+
+  const start = new Date(trades[0].date), end = new Date();
+  const labels=[], data=[];
+  const qty={}, last={}; let cost=0, proceeds=0, realized=0, avg={};
+  let final={};
+  for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)){
+    const day = d.toISOString().slice(0,10);
+    for(const t of trades.filter(t=>t.date===day)){
+      qty[t.name]=qty[t.name]||0;
+      if(t.type==="buy"){
+        avg[t.name]=((avg[t.name]||0)*qty[t.name]+t.qty*t.price+(t.fee||0))/(qty[t.name]+t.qty);
+        qty[t.name]+=t.qty; cost+=t.qty*t.price+(t.fee||0);
+      } else {
+        qty[t.name]-=t.qty; proceeds+=t.qty*t.price-(t.fee||0);
+        realized+=t.qty*(t.price-avg[t.name])-(t.fee||0);
+      }
+    }
+    let value=0;
+    for(const n in qty){
+      if(series[n][day]!==undefined) last[n]=series[n][day];
+      value += qty[n]*(last[n]??0);
+    }
+    const profit = value+proceeds-cost;
+    labels.push(day); data.push(cost? +(profit/cost*100).toFixed(2):0);
+    final={profit,value,realized,cost};
+  }
+  const unreal = final.profit-final.realized, pct=data[data.length-1];
+  document.getElementById("profit").textContent=eur(final.profit);
+  document.getElementById("pct").textContent=fmtPct(pct);
+  document.getElementById("real").textContent=eur(final.realized);
+  document.getElementById("unreal").textContent=eur(unreal);
+  ["profit","pct"].forEach(i=>cls(document.getElementById(i),final.profit));
+  cls(document.getElementById("real"),final.realized); cls(document.getElementById("unreal"),unreal);
+
+  const css=getComputedStyle(document.documentElement);
+  new Chart(document.getElementById("c"),{
+    type:"line",
+    data:{labels,datasets:[{data,borderColor:css.getPropertyValue("--line"),
+      backgroundColor:"rgba(37,99,235,.1)",fill:true,pointRadius:0,tension:.2,borderWidth:2}]},
+    options:{maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtPct(c.parsed.y)}}},
+      scales:{y:{title:{display:true,text:"Rendement (%)"},ticks:{callback:v=>v+"%"}},
+              x:{title:{display:true,text:"Tijd"},ticks:{maxTicksLimit:8}}}}
+  });
+}
+load();
+</script>
+</body>
+</html>
