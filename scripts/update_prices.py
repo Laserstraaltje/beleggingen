@@ -12,14 +12,15 @@ with (ROOT / "trades.json").open(encoding="utf-8") as f:
 
 start = min(t["date"] for t in cfg["trades"])
 prices = {}
+dividends = {}
 for name, ticker in cfg["tickers"].items():
     try:
-        hist = yf.Ticker(ticker).history(start=start, auto_adjust=False, actions=False)["Close"]
+        hist = yf.Ticker(ticker).history(start=start, auto_adjust=False, actions=True)
         if hist.empty:
             raise ValueError("geen data")
 
         valid_prices = {}
-        for day, value in hist.items():
+        for day, value in hist["Close"].items():
             if value is None or (isinstance(value, float) and not math.isfinite(value)):
                 continue
             try:
@@ -34,9 +35,23 @@ for name, ticker in cfg["tickers"].items():
             raise ValueError("geen geldige koersen")
 
         prices[ticker] = valid_prices
-        print(f"OK   {name} ({ticker}): {len(valid_prices)} geldige dagen")
+        valid_dividends = {}
+        for day, value in hist["Dividends"].items():
+            try:
+                numeric_value = float(value)
+            except (TypeError, ValueError):
+                continue
+            if math.isfinite(numeric_value) and numeric_value > 0:
+                valid_dividends[day.strftime("%Y-%m-%d")] = round(numeric_value, 4)
+        dividends[ticker] = valid_dividends
+        print(
+            f"OK   {name} ({ticker}): {len(valid_prices)} koersen, "
+            f"{len(valid_dividends)} dividenddatums"
+        )
     except Exception as e:
         print(f"SKIP {name} ({ticker}): {e}", file=sys.stderr)
 
 with (ROOT / "prices.json").open("w", encoding="utf-8") as f:
     json.dump(prices, f, ensure_ascii=False, allow_nan=False)
+with (ROOT / "dividends.json").open("w", encoding="utf-8") as f:
+    json.dump(dividends, f, ensure_ascii=False, allow_nan=False)

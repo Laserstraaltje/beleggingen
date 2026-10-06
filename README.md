@@ -12,3 +12,4 @@ Toont totale winst en rendement (%) in de tijd.
 ## Transacties toevoegen
 Voeg een regel toe aan `trades.json` (`type`: `buy` of `sell`, optioneel `fee`).
 Controleer bij "tickers" of de Yahoo-tickers kloppen; de script slaat alleen geldige datums/koersen op en gooit `NaN` weg zodat `prices.json` altijd geldig JSON blijft.
+Het dashboard toont koersresultaat en dividend apart. Dividend wordt op Yahoo's ex-dividenddatum aan de positie toegerekend; die datum kan verschillen van de betaaldatum.
