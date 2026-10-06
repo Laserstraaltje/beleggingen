@@ -23,19 +23,54 @@ h1{font-size:1.4rem}
 <h1>Totale winst op mijn beleggingen</h1>
 <div class="cards">
  <div class="card"><small>Totale winst</small><b id="profit">–</b></div>
+ <div class="card"><small>Totaal ingelegd (aankopen)</small><b id="invested">–</b></div>
+ <div class="card"><small>Totale waarde incl. winst en dividend</small><b id="totalValue">–</b></div>
  <div class="card"><small>Rendement</small><b id="pct">–</b></div>
+ <div class="card"><small>Geannualiseerd rendement</small><b id="annualized">–</b></div>
  <div class="card"><small>Koerswinst</small><b id="priceProfit">–</b></div>
  <div class="card"><small>Dividend (ex-datum)</small><b id="dividend">–</b></div>
  <div class="card"><small>Gerealiseerd koersresultaat</small><b id="real">–</b></div>
  <div class="card"><small>Ongerealiseerd koersresultaat</small><b id="unreal">–</b></div>
 </div>
 <div class="chart"><canvas id="c"></canvas></div>
-<p style="color:var(--muted);font-size:.85rem">Totaalrendement is inclusief dividend op de ex-datum. Koerswinst is exclusief dividend; Yahoo Finance geeft hiervoor de ex-datum, niet de betaaldatum.</p>
+<h2>Geannualiseerd rendement door de tijd</h2>
+<div class="chart"><canvas id="annualizedChart"></canvas></div>
+<p style="color:var(--muted);font-size:.85rem">De geannualiseerde grafiek begint na 30 dagen; daarvoor kan het omgerekende jaarrendement door kleine dagelijkse koersbewegingen extreem uitslaan.</p>
+<p style="color:var(--muted);font-size:.85rem">Totaal ingelegd is de som van alle aankopen. Totale waarde is de huidige waarde van de posities plus verkoopopbrengsten en dividend. Totaalrendement is inclusief dividend op de ex-datum. Geannualiseerd rendement is het geldgewogen jaarrendement (XIRR), rekening houdend met aankoop- en verkoopmomenten en dividend. Koerswinst is exclusief dividend; Yahoo Finance geeft hiervoor de ex-datum, niet de betaaldatum.</p>
 </main>
 <script>
 const eur = v => v.toLocaleString("nl-NL",{style:"currency",currency:"EUR"});
 const fmtPct = v => (v>=0?"+":"")+v.toFixed(2).replace(".",",")+"%";
 const cls = (el,v)=>{el.className=v>=0?"pos":"neg"};
+
+function xirr(cashFlows, endDate, endValue){
+  const flows=[...cashFlows,{date:endDate,amount:endValue}].filter(flow=>flow.amount!==0);
+  if(!flows.some(flow=>flow.amount<0)||!flows.some(flow=>flow.amount>0)) return null;
+
+  const startTime=Date.parse(`${flows.reduce((earliest,flow)=>flow.date<earliest?flow.date:earliest,flows[0].date)}T00:00:00Z`);
+  const datedFlows=flows.map(flow=>({
+    amount:flow.amount,
+    years:(Date.parse(`${flow.date}T00:00:00Z`)-startTime)/(365.25*24*60*60*1000)
+  }));
+  if(!datedFlows.some(flow=>flow.years>0)) return null;
+
+  const npv=rate=>datedFlows.reduce((sum,flow)=>sum+flow.amount/Math.pow(1+rate,flow.years),0);
+  const derivative=rate=>datedFlows.reduce((sum,flow)=>sum-flow.years*flow.amount/Math.pow(1+rate,flow.years+1),0);
+  const tolerance=1e-8*Math.max(1,datedFlows.reduce((sum,flow)=>sum+Math.abs(flow.amount),0));
+  let rate=0.1;
+  for(let i=0;i<100;i++){
+    const value=npv(rate);
+    if(!Number.isFinite(value)) return null;
+    if(Math.abs(value)<=tolerance) return rate>-1?rate:null;
+    const slope=derivative(rate);
+    if(!Number.isFinite(slope)||Math.abs(slope)<1e-12) return null;
+    const next=rate-value/slope;
+    if(!Number.isFinite(next)||next<=-1) return null;
+    if(Math.abs(next-rate)<1e-10) return next>-1?next:null;
+    rate=next;
+  }
+  return null;
+}
 
 async function load(){
   const cfg = await (await fetch("trades.json")).json();
@@ -54,20 +89,28 @@ async function load(){
   const dividendSeries = {};
   for(const n of Object.keys(cfg.tickers)) dividendSeries[n] = dividends[tick(n)]||{};
   const start = new Date(trades[0].date), end = new Date();
-  const labels=[], totalReturns=[], priceReturns=[];
-  const qty={}, last={}; let cost=0, proceeds=0, realized=0, totalDividends=0, avg={};
+  const labels=[], totalReturns=[], priceReturns=[], annualizedReturns=[];
+  const qty={}, last={}, cashFlows=[]; let cost=0, proceeds=0, realized=0, totalDividends=0, avg={};
   let final={};
   for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)){
     const day = d.toISOString().slice(0,10);
-    for(const n in qty) totalDividends += (qty[n]||0)*(dividendSeries[n][day]||0);
+    for(const n in qty){
+      const dividend=(qty[n]||0)*(dividendSeries[n][day]||0);
+      totalDividends+=dividend;
+      if(dividend>0) cashFlows.push({date:day,amount:dividend});
+    }
     for(const t of trades.filter(t=>t.date===day)){
       qty[t.name]=qty[t.name]||0;
       if(t.type==="buy"){
-        avg[t.name]=((avg[t.name]||0)*qty[t.name]+t.qty*t.price+(t.fee||0))/(qty[t.name]+t.qty);
-        qty[t.name]+=t.qty; cost+=t.qty*t.price+(t.fee||0);
+        const amount=t.qty*t.price+(t.fee||0);
+        avg[t.name]=((avg[t.name]||0)*qty[t.name]+amount)/(qty[t.name]+t.qty);
+        qty[t.name]+=t.qty; cost+=amount;
+        cashFlows.push({date:day,amount:-amount});
       } else {
-        qty[t.name]-=t.qty; proceeds+=t.qty*t.price-(t.fee||0);
+        const amount=t.qty*t.price-(t.fee||0);
+        qty[t.name]-=t.qty; proceeds+=amount;
         realized+=t.qty*(t.price-avg[t.name])-(t.fee||0);
+        cashFlows.push({date:day,amount});
       }
     }
     let value=0;
@@ -80,16 +123,25 @@ async function load(){
     labels.push(day);
     priceReturns.push(cost? +(priceProfit/cost*100).toFixed(2):0);
     totalReturns.push(cost? +(profit/cost*100).toFixed(2):0);
+    const daysSinceStart=(Date.parse(`${day}T00:00:00Z`)-Date.parse(`${labels[0]}T00:00:00Z`))/(24*60*60*1000);
+    const annualized=daysSinceStart>=30?xirr(cashFlows,day,value):null;
+    annualizedReturns.push(annualized===null?null:+(annualized*100).toFixed(2));
     final={profit,priceProfit,value,realized,totalDividends,cost};
   }
   const unreal = final.priceProfit-final.realized, pct=totalReturns[totalReturns.length-1];
+  const annualized=xirr(cashFlows,labels[labels.length-1],final.value);
   document.getElementById("profit").textContent=eur(final.profit);
+  document.getElementById("invested").textContent=eur(final.cost);
+  document.getElementById("totalValue").textContent=eur(final.value+proceeds+final.totalDividends);
   document.getElementById("pct").textContent=fmtPct(pct);
+  document.getElementById("annualized").textContent=annualized===null?"–":fmtPct(annualized*100);
   document.getElementById("priceProfit").textContent=eur(final.priceProfit);
   document.getElementById("dividend").textContent=eur(final.totalDividends);
   document.getElementById("real").textContent=eur(final.realized);
   document.getElementById("unreal").textContent=eur(unreal);
-  ["profit","priceProfit","pct"].forEach(i=>cls(document.getElementById(i),final.profit));
+  ["profit","priceProfit","pct","totalValue"].forEach(i=>cls(document.getElementById(i),final.profit));
+  cls(document.getElementById("invested"),final.cost);
+  if(annualized!==null) cls(document.getElementById("annualized"),annualized);
   cls(document.getElementById("dividend"),final.totalDividends);
   cls(document.getElementById("real"),final.realized); cls(document.getElementById("unreal"),unreal);
 
@@ -105,6 +157,24 @@ async function load(){
     options:{maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
       plugins:{legend:{display:true},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtPct(c.parsed.y)}`}}},
       scales:{y:{title:{display:true,text:"Rendement (%)"},ticks:{callback:v=>v+"%"}},
+              x:{title:{display:true,text:"Tijd"},ticks:{maxTicksLimit:8}}}}
+  });
+  new Chart(document.getElementById("annualizedChart"),{
+    type:"line",
+    data:{labels,datasets:[{
+      label:"Geannualiseerd rendement (XIRR)",
+      data:annualizedReturns,
+      borderColor:css.getPropertyValue("--line"),
+      backgroundColor:"rgba(37,99,235,.1)",
+      fill:true,
+      pointRadius:0,
+      tension:.2,
+      borderWidth:2,
+      spanGaps:false
+    }]},
+    options:{maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtPct(c.parsed.y)}}},
+      scales:{y:{title:{display:true,text:"Rendement per jaar (%)"},ticks:{callback:v=>v+"%"}},
               x:{title:{display:true,text:"Tijd"},ticks:{maxTicksLimit:8}}}}
   });
 }
