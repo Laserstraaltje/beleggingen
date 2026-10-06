@@ -1,8 +1,8 @@
 {
   "tickers": {
-    "VanEck AEX UCITS ETF": "TAEX.AS",
+    "VanEck AEX UCITS ETF": "TDT.AS",
     "NN Group N.V.": "NN.AS",
-    "Vanguard ESG Dev Europe All Cap UCITS ETF EUR Dist": "CHECK-TICKER",
+    "Vanguard ESG Dev Europe All Cap UCITS ETF EUR Dist": "V3EA.AS",
     "Wolters Kluwer N.V.": "WKL.AS"
   },
   "trades": [
