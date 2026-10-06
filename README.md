@@ -11,6 +11,7 @@ Toont totale winst en rendement (%) in de tijd.
 
 ## Transacties toevoegen
 Voeg een regel toe aan `trades.json` (`type`: `buy` of `sell`, optioneel `fee`).
-Controleer bij "tickers" of de Yahoo-tickers kloppen; de script slaat alleen geldige datums/koersen op en gooit `NaN` weg zodat `prices.json` altijd geldig JSON blijft.
+Controleer bij "tickers" of de Yahoo-tickers kloppen; het script slaat alleen geldige datums/koersen op en gooit `NaN` weg zodat `prices.json` altijd geldig JSON blijft. De koersupdate schrijft ook het tijdstip van ophalen weg; het dashboard toont dit samen met de laatste koersdatum en waarschuwt wanneer een ticker langer dan vijf dagen geen nieuwe koers heeft.
 Het dashboard toont koersresultaat en dividend apart. Dividend wordt op Yahoo's ex-dividenddatum aan de positie toegerekend; die datum kan verschillen van de betaaldatum.
 Het geannualiseerde rendement gebruikt XIRR: aankopen, verkopen, dividend en de huidige waarde worden op hun werkelijke datums meegenomen. Dat maakt het beter vergelijkbaar als er op verschillende momenten is ingelegd.
+De grafieken hebben filters voor één maand, drie maanden, één jaar en de volledige periode. Beweeg over een grafiekpunt voor de datum, het rendement en het resultaatbedrag. De dashboardcijfers zijn per onderwerp gegroepeerd; aanvullende definities staan onder "Uitleg over de cijfers".

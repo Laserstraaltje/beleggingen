@@ -2,6 +2,7 @@
 import json
 import math
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import yfinance as yf
@@ -52,6 +53,7 @@ for name, ticker in cfg["tickers"].items():
         print(f"SKIP {name} ({ticker}): {e}", file=sys.stderr)
 
 with (ROOT / "prices.json").open("w", encoding="utf-8") as f:
+    prices["_updated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     json.dump(prices, f, ensure_ascii=False, allow_nan=False)
 with (ROOT / "dividends.json").open("w", encoding="utf-8") as f:
     json.dump(dividends, f, ensure_ascii=False, allow_nan=False)

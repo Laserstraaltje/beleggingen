@@ -6,42 +6,70 @@
 <title>Mijn beleggingen</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--text:#1a1d21;--muted:#6b7280;--pos:#16a34a;--neg:#dc2626;--line:#2563eb}
-@media(prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--text:#e8eaed;--muted:#9aa0a6;--line:#60a5fa}}
+:root{--bg:#f6f7f9;--card:#fff;--text:#1a1d21;--muted:#555d68;--pos:#15803d;--neg:#b91c1c;--line:#2563eb;--border:#d1d5db}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--text:#e8eaed;--muted:#b0b7c3;--pos:#4ade80;--neg:#f87171;--line:#60a5fa;--border:#3b414b}}
 body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--text)}
-main{max-width:900px;margin:0 auto;padding:24px 16px}
-h1{font-size:1.4rem}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
-.card{background:var(--card);border-radius:12px;padding:14px 16px}
-.card small{color:var(--muted)}.card b{display:block;font-size:1.4rem;margin-top:4px}
-.chart{background:var(--card);border-radius:12px;padding:16px;height:380px}
+main{max-width:1000px;margin:0 auto;padding:24px 16px}
+h1{font-size:1.6rem;margin-bottom:8px}h2{font-size:1.15rem;margin:24px 0 12px}
+.updated{color:var(--muted);font-size:.9rem;margin:0 0 20px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:12px;margin-bottom:16px}
+.card{background:var(--card);border-radius:12px;padding:14px 16px;min-width:0}
+.card small{color:var(--muted)}.card b{display:block;font-size:clamp(1.15rem,4vw,1.4rem);margin-top:4px;overflow-wrap:anywhere}
+.chart{background:var(--card);border-radius:12px;padding:16px;height:clamp(260px,55vw,380px)}
+.chart-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 12px}
+.chart-controls button{font:inherit;color:var(--text);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;cursor:pointer}
+.chart-controls button[aria-pressed="true"]{background:var(--line);border-color:var(--line);color:#fff}
+.chart-controls button:focus-visible,summary:focus-visible{outline:3px solid var(--line);outline-offset:3px}
+.note,details{color:var(--muted);font-size:.9rem;line-height:1.55}
+details{background:var(--card);border-radius:12px;padding:12px 16px;margin:16px 0}
+summary{color:var(--text);font-weight:600;cursor:pointer}
 .pos{color:var(--pos)}.neg{color:var(--neg)}
+@media(max-width:480px){main{padding:18px 12px}.chart{padding:10px;height:280px}.chart-controls button{padding:8px 10px}}
 </style>
 </head>
 <body>
 <main>
 <h1>Totale winst op mijn beleggingen</h1>
+<p class="updated" id="dataStatus" role="status" aria-live="polite">Koersgegevens laden…</p>
+<h2>In één oogopslag</h2>
 <div class="cards">
  <div class="card"><small>Totale winst</small><b id="profit">–</b></div>
- <div class="card"><small>Totaal ingelegd (aankopen)</small><b id="invested">–</b></div>
- <div class="card"><small>Totale waarde incl. winst en dividend</small><b id="totalValue">–</b></div>
  <div class="card"><small>Rendement</small><b id="pct">–</b></div>
  <div class="card"><small>Geannualiseerd rendement</small><b id="annualized">–</b></div>
+</div>
+<h2>Koersresultaat</h2>
+<div class="cards">
+ <div class="card"><small>Totaal ingelegd (aankopen)</small><b id="invested">–</b></div>
+ <div class="card"><small>Totale waarde incl. verkoopopbrengst en dividend</small><b id="totalValue">–</b></div>
  <div class="card"><small>Koerswinst</small><b id="priceProfit">–</b></div>
- <div class="card"><small>Dividend (ex-datum)</small><b id="dividend">–</b></div>
  <div class="card"><small>Gerealiseerd koersresultaat</small><b id="real">–</b></div>
  <div class="card"><small>Ongerealiseerd koersresultaat</small><b id="unreal">–</b></div>
 </div>
-<div class="chart"><canvas id="c"></canvas></div>
+<h2>Dividend</h2>
+<div class="cards"><div class="card"><small>Dividend ontvangen (ex-datum)</small><b id="dividend">–</b></div></div>
+<h2>Rendement door de tijd</h2>
+<div class="chart-controls" role="group" aria-label="Periode voor grafieken">
+ <button type="button" data-days="30" aria-pressed="false">1 maand</button>
+ <button type="button" data-days="90" aria-pressed="false">3 maanden</button>
+ <button type="button" data-days="365" aria-pressed="false">1 jaar</button>
+ <button type="button" data-days="all" aria-pressed="true">Alles</button>
+</div>
+<div class="chart"><canvas id="c" role="img" aria-label="Grafiek van totaal- en koersrendement door de tijd"></canvas></div>
 <h2>Geannualiseerd rendement door de tijd</h2>
-<div class="chart"><canvas id="annualizedChart"></canvas></div>
-<p style="color:var(--muted);font-size:.85rem">De geannualiseerde grafiek begint na 30 dagen; daarvoor kan het omgerekende jaarrendement door kleine dagelijkse koersbewegingen extreem uitslaan.</p>
-<p style="color:var(--muted);font-size:.85rem">Totaal ingelegd is de som van alle aankopen. Totale waarde is de huidige waarde van de posities plus verkoopopbrengsten en dividend. Totaalrendement is inclusief dividend op de ex-datum. Geannualiseerd rendement is het geldgewogen jaarrendement (XIRR), rekening houdend met aankoop- en verkoopmomenten en dividend. Koerswinst is exclusief dividend; Yahoo Finance geeft hiervoor de ex-datum, niet de betaaldatum.</p>
+<div class="chart"><canvas id="annualizedChart" role="img" aria-label="Grafiek van geannualiseerd rendement door de tijd"></canvas></div>
+<p class="note">De geannualiseerde grafiek begint na 30 dagen. Daarvoor kan een omgerekend jaarrendement door kleine dagelijkse koersbewegingen extreem uitslaan.</p>
+<details>
+ <summary>Uitleg over de cijfers</summary>
+ <p>Totaal ingelegd is de som van alle aankopen. Huidige waarde is de marktwaarde van de posities plus verkoopopbrengsten en ontvangen dividend. Totale winst en totaalrendement zijn inclusief dividend. Koerswinst is exclusief dividend.</p>
+ <p>Gerealiseerd koersresultaat betreft verkochte stukken; ongerealiseerd koersresultaat betreft de nog aangehouden posities. Geannualiseerd rendement is het geldgewogen jaarrendement (XIRR), rekening houdend met aankoop-, verkoop- en dividendmomenten. XIRR kan afwijken van het gewone rendement als geld op verschillende momenten is ingelegd.</p>
+ <p>Dividend wordt toegerekend op Yahoo Finance's ex-dividenddatum, niet op de betaaldatum. Gebruik de periodeknoppen om beide grafieken te bekijken over een korter of langer tijdvak. Aanwijzen op een grafiek toont de datum, het rendement en het bedrag in euro's.</p>
+ <p><strong>Let op:</strong> dividendbelasting en eventuele DEGIRO-transactie- of overdrachtskosten zijn niet verwerkt in de getoonde bedragen. Houd hier rekening mee bij het beoordelen van je nettoresultaat en totale waarde.</p>
+</details>
 </main>
 <script>
 const eur = v => v.toLocaleString("nl-NL",{style:"currency",currency:"EUR"});
 const fmtPct = v => (v>=0?"+":"")+v.toFixed(2).replace(".",",")+"%";
-const cls = (el,v)=>{el.className=v>=0?"pos":"neg"};
+const cls = (el,v)=>{el.classList.toggle("pos",v>=0);el.classList.toggle("neg",v<0)};
 
 function xirr(cashFlows, endDate, endValue){
   const flows=[...cashFlows,{date:endDate,amount:endValue}].filter(flow=>flow.amount!==0);
@@ -73,11 +101,36 @@ function xirr(cashFlows, endDate, endValue){
 }
 
 async function load(){
-  const cfg = await (await fetch("trades.json")).json();
+  const configResponse=await fetch("trades.json");
+  if(!configResponse.ok) throw new Error("trades.json laden mislukt");
+  const cfg = await configResponse.json();
   const [prices, dividends] = await Promise.all([
     fetch("prices.json").then(r=>{if(!r.ok) throw new Error("prices.json laden mislukt"); return r.json();}),
     fetch("dividends.json").then(r=>{if(!r.ok) throw new Error("dividends.json laden mislukt"); return r.json();})
   ]);
+
+  const tickerDates=Object.entries(cfg.tickers).map(([name,ticker])=>({
+    name,
+    latest:Object.keys(prices[ticker]||{}).sort().at(-1)
+  }));
+  const allPriceDates=tickerDates.flatMap(item=>item.latest?[item.latest]:[]);
+  const latestPriceDate=allPriceDates.sort().at(-1);
+  const status=document.getElementById("dataStatus");
+  if(prices._updated_at){
+    const updatedAt=new Date(prices._updated_at);
+    status.textContent=`Koersen bijgewerkt: ${updatedAt.toLocaleString("nl-NL")} · laatste koersdatum: ${latestPriceDate||"onbekend"}`;
+  }else{
+    status.textContent=`Update-tijdstip onbekend · laatste koersdatum: ${latestPriceDate||"onbekend"}`;
+  }
+  const cutoffDate=Date.now()-5*86400000;
+  const staleTickers=tickerDates.filter(item=>!item.latest||Date.parse(`${item.latest}T00:00:00Z`)<cutoffDate);
+  if(!latestPriceDate){
+    status.classList.add("neg");
+    status.textContent+=" · Er zijn geen koersgegevens beschikbaar.";
+  }else if(staleTickers.length){
+    status.classList.add("neg");
+    status.textContent+=` · Geen recente koers voor: ${staleTickers.map(item=>item.name).join(", ")}.`;
+  }
 
   const trades = [...cfg.trades].sort((a,b)=>a.date.localeCompare(b.date));
   const tick = n => cfg.tickers[n];
@@ -89,7 +142,7 @@ async function load(){
   const dividendSeries = {};
   for(const n of Object.keys(cfg.tickers)) dividendSeries[n] = dividends[tick(n)]||{};
   const start = new Date(trades[0].date), end = new Date();
-  const labels=[], totalReturns=[], priceReturns=[], annualizedReturns=[];
+  const labels=[], totalReturns=[], priceReturns=[], annualizedReturns=[], profitSeries=[], priceProfitSeries=[], valueSeries=[];
   const qty={}, last={}, cashFlows=[]; let cost=0, proceeds=0, realized=0, totalDividends=0, avg={};
   let final={};
   for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)){
@@ -121,6 +174,9 @@ async function load(){
     const priceProfit = value+proceeds-cost;
     const profit = priceProfit+totalDividends;
     labels.push(day);
+    profitSeries.push(profit);
+    priceProfitSeries.push(priceProfit);
+    valueSeries.push(value+proceeds+totalDividends);
     priceReturns.push(cost? +(priceProfit/cost*100).toFixed(2):0);
     totalReturns.push(cost? +(profit/cost*100).toFixed(2):0);
     const daysSinceStart=(Date.parse(`${day}T00:00:00Z`)-Date.parse(`${labels[0]}T00:00:00Z`))/(24*60*60*1000);
@@ -139,29 +195,42 @@ async function load(){
   document.getElementById("dividend").textContent=eur(final.totalDividends);
   document.getElementById("real").textContent=eur(final.realized);
   document.getElementById("unreal").textContent=eur(unreal);
-  ["profit","priceProfit","pct","totalValue"].forEach(i=>cls(document.getElementById(i),final.profit));
+  ["profit","pct"].forEach(i=>cls(document.getElementById(i),final.profit));
+  cls(document.getElementById("priceProfit"),final.priceProfit);
   cls(document.getElementById("invested"),final.cost);
   if(annualized!==null) cls(document.getElementById("annualized"),annualized);
   cls(document.getElementById("dividend"),final.totalDividends);
   cls(document.getElementById("real"),final.realized); cls(document.getElementById("unreal"),unreal);
 
   const css=getComputedStyle(document.documentElement);
-  new Chart(document.getElementById("c"),{
+  let rangeIndices=labels.map((_,i)=>i);
+  const chartOptions={
+    maintainAspectRatio:false,
+    interaction:{mode:"index",intersect:false},
+    plugins:{legend:{display:true},tooltip:{callbacks:{
+      title:items=>items.length?new Date(`${labels[rangeIndices[items[0].dataIndex]]}T00:00:00`).toLocaleDateString("nl-NL",{dateStyle:"long"}):"",
+      label:item=>{
+        const index=rangeIndices[item.dataIndex];
+        const amount=item.datasetIndex===1?priceProfitSeries[index]:profitSeries[index];
+        return `${item.dataset.label}: ${fmtPct(item.parsed.y)} · resultaat ${eur(amount)}`;
+      }
+    }}},
+    scales:{y:{title:{display:true,text:"Rendement (%)"},ticks:{callback:v=>v+"%"}},
+            x:{title:{display:true,text:"Tijd"},ticks:{maxTicksLimit:8}}}
+  };
+  const returnChart=new Chart(document.getElementById("c"),{
     type:"line",
-    data:{labels,datasets:[
+    data:{labels:[],datasets:[
       {label:"Totaalrendement incl. dividend",data:totalReturns,borderColor:css.getPropertyValue("--line"),
         backgroundColor:"rgba(37,99,235,.1)",fill:true,pointRadius:0,tension:.2,borderWidth:2},
       {label:"Koersrendement excl. dividend",data:priceReturns,borderColor:css.getPropertyValue("--pos"),
         fill:false,pointRadius:0,tension:.2,borderWidth:2}
     ]},
-    options:{maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
-      plugins:{legend:{display:true},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtPct(c.parsed.y)}`}}},
-      scales:{y:{title:{display:true,text:"Rendement (%)"},ticks:{callback:v=>v+"%"}},
-              x:{title:{display:true,text:"Tijd"},ticks:{maxTicksLimit:8}}}}
+    options:chartOptions
   });
-  new Chart(document.getElementById("annualizedChart"),{
+  const annualChart=new Chart(document.getElementById("annualizedChart"),{
     type:"line",
-    data:{labels,datasets:[{
+    data:{labels:[],datasets:[{
       label:"Geannualiseerd rendement (XIRR)",
       data:annualizedReturns,
       borderColor:css.getPropertyValue("--line"),
@@ -172,16 +241,39 @@ async function load(){
       borderWidth:2,
       spanGaps:false
     }]},
-    options:{maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtPct(c.parsed.y)}}},
-      scales:{y:{title:{display:true,text:"Rendement per jaar (%)"},ticks:{callback:v=>v+"%"}},
-              x:{title:{display:true,text:"Tijd"},ticks:{maxTicksLimit:8}}}}
+    options:{...chartOptions,plugins:{...chartOptions.plugins,legend:{display:false},tooltip:{callbacks:{
+      ...chartOptions.plugins.tooltip.callbacks,
+      label:item=>`${item.dataset.label}: ${fmtPct(item.parsed.y)} · totaal ${eur(profitSeries[rangeIndices[item.dataIndex]])} · waarde ${eur(valueSeries[rangeIndices[item.dataIndex]])}`
+    }}},scales:{...chartOptions.scales,y:{title:{display:true,text:"Rendement per jaar (%)"},ticks:{callback:v=>v+"%"}}}}
   });
+  const updateRange=days=>{
+    const latest=Date.parse(`${labels[labels.length-1]}T00:00:00Z`);
+    const cutoff=days==="all"?-Infinity:latest-Number(days)*86400000;
+    rangeIndices=labels.map((_,i)=>i).filter(i=>Date.parse(`${labels[i]}T00:00:00Z`)>=cutoff);
+    const visibleLabels=rangeIndices.map(i=>labels[i]);
+    returnChart.data.labels=visibleLabels;
+    returnChart.data.datasets[0].data=rangeIndices.map(i=>totalReturns[i]);
+    returnChart.data.datasets[1].data=rangeIndices.map(i=>priceReturns[i]);
+    annualChart.data.labels=visibleLabels;
+    annualChart.data.datasets[0].data=rangeIndices.map(i=>annualizedReturns[i]);
+    returnChart.update();
+    annualChart.update();
+  };
+  document.querySelectorAll(".chart-controls button").forEach(button=>{
+    button.addEventListener("click",()=>{
+      document.querySelectorAll(".chart-controls button").forEach(item=>item.setAttribute("aria-pressed",String(item===button)));
+      updateRange(button.dataset.days);
+    });
+  });
+  updateRange("all");
 }
 load().catch(error=>{
   console.error(error);
-  document.querySelector("main").insertAdjacentHTML("afterbegin",
-    `<p role="alert" class="neg">Laden mislukt: ${error.message}</p>`);
+  const alert=document.createElement("p");
+  alert.setAttribute("role","alert");
+  alert.className="neg";
+  alert.textContent=`Laden mislukt: ${error.message}`;
+  document.querySelector("main").prepend(alert);
 });
 </script>
 </body>
